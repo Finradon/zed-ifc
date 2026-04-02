@@ -1,0 +1,6 @@
+.DS_Store
+/target
+/ifc-language-server-*
+/extension.wasm
+/grammars
+samples/

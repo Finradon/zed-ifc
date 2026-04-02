@@ -1,0 +1,8 @@
+name = "IFC"
+grammar = "ifc"
+path_suffixes = ["ifc"]
+first_line_pattern = "^ISO-10303-21;$"
+block_comment = { start = "/*", end = "*/" }
+brackets = [
+    { start = "(", end = ")", close = true, newline = false },
+]
