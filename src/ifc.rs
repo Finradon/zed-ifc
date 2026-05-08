@@ -1,12 +1,13 @@
 use std::fs;
 
 use zed_extension_api::{
-    self as zed, serde_json, set_language_server_installation_status as set_install_status,
-    settings::LspSettings, LanguageServerId, LanguageServerInstallationStatus as Status, Result,
+    self as zed, LanguageServerId, LanguageServerInstallationStatus as Status, Result, serde_json,
+    set_language_server_installation_status as set_install_status, settings::LspSettings,
 };
 
 const LANGUAGE_SERVER_ID: &str = "ifc-language-server";
 const LANGUAGE_SERVER_REPOSITORY: &str = "NepomukWolf/IFC-Language-Server";
+const LANGUAGE_SERVER_VERSION: &str = "v0.3.0";
 const BINARY_NAME: &str = "ifc-language-server";
 const WINDOWS_BINARY_NAME: &str = "ifc-language-server.exe";
 const VERSION_DIR_PREFIX: &str = "ifc-language-server-";
@@ -33,10 +34,14 @@ impl IfcExtension {
             .and_then(|binary| binary.arguments.clone())
             .unwrap_or_default();
 
-        let path = binary
+        let path = if let Some(path) = binary
             .and_then(|binary| binary.path)
             .or_else(|| worktree.which(BINARY_NAME))
-            .unwrap_or(self.zed_managed_binary_path(language_server_id)?);
+        {
+            path
+        } else {
+            self.zed_managed_binary_path(language_server_id)?
+        };
 
         Ok(IfcBinary { path, args })
     }
@@ -49,13 +54,8 @@ impl IfcExtension {
         }
 
         set_install_status(language_server_id, &Status::CheckingForUpdate);
-        let release = zed::latest_github_release(
-            LANGUAGE_SERVER_REPOSITORY,
-            zed::GithubReleaseOptions {
-                require_assets: true,
-                pre_release: false,
-            },
-        )?;
+        let release =
+            zed::github_release_by_tag_name(LANGUAGE_SERVER_REPOSITORY, LANGUAGE_SERVER_VERSION)?;
 
         let (platform, architecture) = zed::current_platform();
         let (asset_name, binary_name, file_type) = match (platform, architecture) {
@@ -86,7 +86,11 @@ impl IfcExtension {
             .assets
             .iter()
             .find(|asset| asset.name == asset_name)
-            .ok_or_else(|| format!("no asset found matching {asset_name:?}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "no asset found matching {asset_name:?} for IFC language server {LANGUAGE_SERVER_VERSION}"
+                )
+            })?;
 
         let version_dir = format!("{VERSION_DIR_PREFIX}{}", release.version);
         let binary_path = format!("{version_dir}/{binary_name}");
@@ -168,10 +172,9 @@ impl zed::Extension for IfcExtension {
     ) -> Result<Option<serde_json::Value>> {
         let settings = LspSettings::for_worktree(language_server_id.as_ref(), worktree)
             .ok()
-            .and_then(|lsp_settings| lsp_settings.initialization_options.clone())
-            .unwrap_or_default();
+            .and_then(|lsp_settings| lsp_settings.initialization_options.clone());
 
-        Ok(Some(settings))
+        Ok(settings)
     }
 
     fn language_server_workspace_configuration(
@@ -181,10 +184,9 @@ impl zed::Extension for IfcExtension {
     ) -> Result<Option<serde_json::Value>> {
         let settings = LspSettings::for_worktree(language_server_id.as_ref(), worktree)
             .ok()
-            .and_then(|lsp_settings| lsp_settings.settings.clone())
-            .unwrap_or_default();
+            .and_then(|lsp_settings| lsp_settings.settings.clone());
 
-        Ok(Some(settings))
+        Ok(settings)
     }
 }
 
