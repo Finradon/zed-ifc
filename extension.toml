@@ -1,15 +1,18 @@
 id = "ifc"
 name = "IFC"
 description = "Industry Foundation Classes (IFC) language support."
-version = "0.1.0"
+version = "0.2.0"
 schema_version = 1
 authors = ["Benedict Harder"]
 repository = "https://github.com/Finradon/zed-ifc"
 
 [language_servers.ifc-language-server]
 name = "IFC Language Server"
-language = "IFC"
+languages = ["IFC"]
+
+[language_servers.ifc-language-server.language_ids]
+"IFC" = "ifc"
 
 [grammars.ifc]
 repository = "https://github.com/NepomukWolf/tree-sitter-ifc"
-commit = "bd5039f5d7929a9a8e1c138cd449ec385f17789e"
+rev = "bd5039f5d7929a9a8e1c138cd449ec385f17789e"
