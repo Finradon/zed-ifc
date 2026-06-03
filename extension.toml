@@ -1,7 +1,7 @@
 id = "ifc"
 name = "IFC"
 description = "Industry Foundation Classes (IFC) language support."
-version = "0.2.0"
+version = "0.3.0"
 schema_version = 1
 authors = ["Benedict Harder"]
 repository = "https://github.com/Finradon/zed-ifc"
