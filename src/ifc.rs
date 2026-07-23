@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::fs;
 
 use zed_extension_api::{
     self as zed, LanguageServerId, LanguageServerInstallationStatus as Status, Result, serde_json,
@@ -7,7 +7,7 @@ use zed_extension_api::{
 
 const LANGUAGE_SERVER_ID: &str = "ifc-language-server";
 const LANGUAGE_SERVER_REPOSITORY: &str = "NepomukWolf/IFC-Language-Server";
-const LANGUAGE_SERVER_VERSION: &str = "v0.4.0";
+const LANGUAGE_SERVER_VERSION: &str = "v0.5.0";
 const BINARY_NAME: &str = "ifc-language-server";
 const WINDOWS_BINARY_NAME: &str = "ifc-language-server.exe";
 const VERSION_DIR_PREFIX: &str = "ifc-language-server-";
@@ -33,54 +33,14 @@ impl IfcExtension {
         language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<IfcBinary> {
-        let settings = LspSettings::for_worktree(language_server_id.as_ref(), worktree);
-        let binary = settings.ok().and_then(|settings| settings.binary);
-        let args = binary
-            .as_ref()
+        let args = LspSettings::for_worktree(language_server_id.as_ref(), worktree)
+            .ok()
+            .and_then(|settings| settings.binary)
             .and_then(|binary| binary.arguments.clone())
             .unwrap_or_default();
-
-        let path = if let Some(path) = binary
-            .and_then(|binary| binary.path)
-            .or_else(|| self.path_binary(worktree))
-        {
-            path
-        } else {
-            self.zed_managed_binary_path(language_server_id)?
-        };
+        let path = self.zed_managed_binary_path(language_server_id)?;
 
         Ok(IfcBinary { path, args })
-    }
-
-    fn path_binary(&self, worktree: &zed::Worktree) -> Option<String> {
-        worktree.which(BINARY_NAME).or_else(|| {
-            let binary_name = match zed::current_platform() {
-                (zed::Os::Windows, _) => WINDOWS_BINARY_NAME,
-                _ => BINARY_NAME,
-            };
-
-            let path = worktree
-                .shell_env()
-                .into_iter()
-                .find_map(|(key, value)| key.eq_ignore_ascii_case("PATH").then_some(value))?;
-
-            self.find_binary_in_path(&path, binary_name)
-        })
-    }
-
-    fn find_binary_in_path(&self, path: &str, binary_name: &str) -> Option<String> {
-        let separator = match zed::current_platform() {
-            (zed::Os::Windows, _) => ';',
-            _ => ':',
-        };
-
-        path.split(separator).find_map(|entry| {
-            let candidate = PathBuf::from(entry).join(binary_name);
-            fs::metadata(&candidate)
-                .ok()
-                .filter(|metadata| metadata.is_file())
-                .and_then(|_| candidate.to_str().map(ToOwned::to_owned))
-        })
     }
 
     fn zed_managed_binary_path(&mut self, language_server_id: &LanguageServerId) -> Result<String> {
@@ -101,6 +61,14 @@ impl IfcExtension {
                 BINARY_NAME,
                 zed::DownloadedFileType::GzipTar,
             ),
+            (zed::Os::Mac, zed::Architecture::X8664) => (
+                format!(
+                    "ifc-language-server-{}-macos-x86_64.tar.gz",
+                    release.version
+                ),
+                BINARY_NAME,
+                zed::DownloadedFileType::GzipTar,
+            ),
             (zed::Os::Linux, zed::Architecture::X8664) => (
                 format!("ifc-language-server-{}-linux-x86_64.tar.gz", release.version),
                 BINARY_NAME,
@@ -113,7 +81,7 @@ impl IfcExtension {
             ),
             _ => {
                 return Err(
-                    "unsupported platform for IFC language server; supported targets are macOS arm64, Linux x86_64, and Windows x86_64"
+                    "unsupported platform for IFC language server; supported targets are macOS arm64/x86_64, Linux x86_64, and Windows x86_64"
                         .to_string(),
                 )
             }
